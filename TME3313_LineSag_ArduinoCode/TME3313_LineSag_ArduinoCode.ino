@@ -125,6 +125,7 @@ void updateButtonState(ButtonState &btn) {
 
 void switchMenu() {
   lcd.noCursor();
+  lcd.noBlink();
 
   if (currentScreen == SCREEN_NORMAL) {
     currentScreen = SCREEN_THRESHOLD;
@@ -133,6 +134,7 @@ void switchMenu() {
   } else if (currentScreen == SCREEN_THRESHOLD) {
     currentScreen = SCREEN_PHONE;
     menuMode = true;
+    currentDigitIndex = 0;
     showPhoneScreen();
   } else {
     currentScreen = SCREEN_NORMAL;
@@ -142,17 +144,14 @@ void switchMenu() {
 }
 
 void handleProgressButton() {
-  // detect initial press
   if (wasButtonPressed(progressBtn)) {
     progressWaitingRelease = true;
     progressLongPressHandled = false;
     progressPressStart = millis();
   }
 
-  // keep debounce state updated while held/released
   updateButtonState(progressBtn);
 
-  // long press action
   if (progressWaitingRelease && !progressLongPressHandled && progressBtn.stableState == LOW) {
     if (millis() - progressPressStart >= LONG_PRESS_DELAY) {
       progressLongPressHandled = true;
@@ -160,21 +159,19 @@ void handleProgressButton() {
     }
   }
 
-  // release after short press
   if (progressWaitingRelease && progressBtn.stableState == HIGH) {
     if (!progressLongPressHandled) {
-      // short press action
       if (currentScreen == SCREEN_PHONE) {
-        currentDigitIndex++;
-
-        if (currentDigitIndex > 10) {
-          currentDigitIndex = 10;
+        if (currentDigitIndex < 10) {
+          currentDigitIndex++;
+          showPhoneScreen();
+        } else {
           updateNumberCommand();
           showPhoneSavedScreen();
           delay(1000);
+          currentDigitIndex = 0;
+          showPhoneScreen();
         }
-
-        showPhoneScreen();
       }
     }
 
@@ -257,6 +254,7 @@ void loop() {
 //////////////////////////////
 void showNormalScreen() {
   lcd.noCursor();
+  lcd.noBlink();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Dist:");
@@ -271,6 +269,7 @@ void showNormalScreen() {
 
 void showThresholdScreen() {
   lcd.noCursor();
+  lcd.noBlink();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Set Threshold");
@@ -282,6 +281,7 @@ void showThresholdScreen() {
 
 void showAlertScreen(const char* line2) {
   lcd.noCursor();
+  lcd.noBlink();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("WARNING");
@@ -300,10 +300,12 @@ void showPhoneScreen() {
 
   lcd.setCursor(currentDigitIndex + 1, 1);
   lcd.cursor();
+  lcd.blink();
 }
 
 void showPhoneSavedScreen() {
   lcd.noCursor();
+  lcd.noBlink();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Phone Saved");
