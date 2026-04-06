@@ -15,9 +15,9 @@ char* pratik = "AT+CMGS=\"+15064787090\"\r";
 char* number = faaiz;
 
 // Buttons
-int progressButton = 12;   // short press = action, long press = switch menu
-const int incButton = 4;   // increase threshold / increase digit
-const int decButton = 5;   // decrease threshold / decrease digit
+int progressButton = 37;   // short press = action, long press = switch menu
+const int incButton = 36;   // increase threshold / increase digit
+const int decButton = 38;   // decrease threshold / decrease digit
 
 // Timing
 const unsigned long SAMPLE_INTERVAL = 1000;
@@ -35,15 +35,14 @@ SoftwareSerial Sim7000G(10, 9);
 int SIM_DTR = 22;
 
 // Ultrasonic sensor
-const int trigPin = 10;
-const int echoPin = 11;
+const int trigPin = 44;
+const int echoPin = 45;
 float distance;
 float threshold_distance = 5;
 
 bool ignore=false;
 const char* ignore_msg = "ignore";
 const char* reset_msg = "reset";
-float threshold_distance = 5.0;
 
 // Menu
 bool menuMode = false;
@@ -52,7 +51,7 @@ const float minThreshold = 1.0;
 const float maxThreshold = 50.0;
 
 // LCD: RS, EN, D4, D5, D6, D7
-LiquidCrystal lcd(2, 3, 6, 7, 8, 9);
+LiquidCrystal lcd(30, 31, 32, 33, 34, 35);
 
 // Menu states
 enum MenuScreen {
@@ -97,97 +96,6 @@ ButtonState decBtn      = {decButton, HIGH, HIGH, 0};
 bool progressWaitingRelease = false;
 bool progressLongPressHandled = false;
 unsigned long progressPressStart = 0;
-
-bool wasButtonPressed(ButtonState &btn) {
-  bool reading = digitalRead(btn.pin);
-
-  if (reading != btn.lastReading) {
-    btn.lastChangeTime = millis();
-    btn.lastReading = reading;
-  }
-
-  if ((millis() - btn.lastChangeTime) > DEBOUNCE_DELAY) {
-    if (reading != btn.stableState) {
-      btn.stableState = reading;
-
-      if (btn.stableState == LOW) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-void updateButtonState(ButtonState &btn) {
-  bool reading = digitalRead(btn.pin);
-
-  if (reading != btn.lastReading) {
-    btn.lastChangeTime = millis();
-    btn.lastReading = reading;
-  }
-
-  if ((millis() - btn.lastChangeTime) > DEBOUNCE_DELAY) {
-    btn.stableState = reading;
-  }
-}
-
-void switchMenu() {
-  lcd.noCursor();
-  lcd.noBlink();
-
-  if (currentScreen == SCREEN_NORMAL) {
-    currentScreen = SCREEN_THRESHOLD;
-    menuMode = true;
-    showThresholdScreen();
-  } else if (currentScreen == SCREEN_THRESHOLD) {
-    currentScreen = SCREEN_PHONE;
-    menuMode = true;
-    currentDigitIndex = 0;
-    showPhoneScreen();
-  } else {
-    currentScreen = SCREEN_NORMAL;
-    menuMode = false;
-    showNormalScreen();
-  }
-}
-
-void handleProgressButton() {
-  if (wasButtonPressed(progressBtn)) {
-    progressWaitingRelease = true;
-    progressLongPressHandled = false;
-    progressPressStart = millis();
-  }
-
-  updateButtonState(progressBtn);
-
-  if (progressWaitingRelease && !progressLongPressHandled && progressBtn.stableState == LOW) {
-    if (millis() - progressPressStart >= LONG_PRESS_DELAY) {
-      progressLongPressHandled = true;
-      switchMenu();
-    }
-  }
-
-  if (progressWaitingRelease && progressBtn.stableState == HIGH) {
-    if (!progressLongPressHandled) {
-      if (currentScreen == SCREEN_PHONE) {
-        if (currentDigitIndex < 10) {
-          currentDigitIndex++;
-          showPhoneScreen();
-        } else {
-          updateNumberCommand();
-          showPhoneSavedScreen();
-          delay(1000);
-          currentDigitIndex = 0;
-          showPhoneScreen();
-        }
-      }
-    }
-
-    progressWaitingRelease = false;
-    progressLongPressHandled = false;
-  }
-}
 
 void setup() {
   Serial.begin(57600);
@@ -237,11 +145,11 @@ void loop() {
     return;
   }
 
-  if (millis() - sensTime > SAMPLE_INTERVAL && !ignore) {
+  if (millis() - sensTime > SAMPLE_INTERVAL) {
     sensTime = millis();
     distance = get_cm();
 
-    if (distance < threshold_distance) {
+    if (distance < threshold_distance && !ignore) {
       dtostrf(distance, 4, 1, chValue);
 
       char warning[32];
@@ -251,7 +159,7 @@ void loop() {
       Serial.println(warning);
 
       // Uncomment when ready
-      // SendSMS(warning);
+      SendSMS(warning);
 
       delay(2000);
     }
@@ -445,6 +353,7 @@ void SendSMS(char* message) {
 }
 
 void simSetup() {
+  Serial.println("Initializing...");
   digitalWrite(SIM_DTR, LOW);
   checkingDelay(100);
 
@@ -520,4 +429,99 @@ float get_cm() {
   dist = (duration * 0.0343) / 2.0;
 
   return dist;
+}
+
+
+//////////////////////////////
+// LCD
+//////////////////////////////
+bool wasButtonPressed(ButtonState &btn) {
+  bool reading = digitalRead(btn.pin);
+
+  if (reading != btn.lastReading) {
+    btn.lastChangeTime = millis();
+    btn.lastReading = reading;
+  }
+
+  if ((millis() - btn.lastChangeTime) > DEBOUNCE_DELAY) {
+    if (reading != btn.stableState) {
+      btn.stableState = reading;
+
+      if (btn.stableState == LOW) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+void updateButtonState(ButtonState &btn) {
+  bool reading = digitalRead(btn.pin);
+
+  if (reading != btn.lastReading) {
+    btn.lastChangeTime = millis();
+    btn.lastReading = reading;
+  }
+
+  if ((millis() - btn.lastChangeTime) > DEBOUNCE_DELAY) {
+    btn.stableState = reading;
+  }
+}
+
+void switchMenu() {
+  lcd.noCursor();
+  lcd.noBlink();
+
+  if (currentScreen == SCREEN_NORMAL) {
+    currentScreen = SCREEN_THRESHOLD;
+    menuMode = true;
+    showThresholdScreen();
+  } else if (currentScreen == SCREEN_THRESHOLD) {
+    currentScreen = SCREEN_PHONE;
+    menuMode = true;
+    currentDigitIndex = 0;
+    showPhoneScreen();
+  } else {
+    currentScreen = SCREEN_NORMAL;
+    menuMode = false;
+    showNormalScreen();
+  }
+}
+
+void handleProgressButton() {
+  if (wasButtonPressed(progressBtn)) {
+    progressWaitingRelease = true;
+    progressLongPressHandled = false;
+    progressPressStart = millis();
+  }
+
+  updateButtonState(progressBtn);
+
+  if (progressWaitingRelease && !progressLongPressHandled && progressBtn.stableState == LOW) {
+    if (millis() - progressPressStart >= LONG_PRESS_DELAY) {
+      progressLongPressHandled = true;
+      switchMenu();
+    }
+  }
+
+  if (progressWaitingRelease && progressBtn.stableState == HIGH) {
+    if (!progressLongPressHandled) {
+      if (currentScreen == SCREEN_PHONE) {
+        if (currentDigitIndex < 10) {
+          currentDigitIndex++;
+          showPhoneScreen();
+        } else {
+          updateNumberCommand();
+          showPhoneSavedScreen();
+          delay(1000);
+          currentDigitIndex = 0;
+          showPhoneScreen();
+        }
+      }
+    }
+
+    progressWaitingRelease = false;
+    progressLongPressHandled = false;
+  }
 }
