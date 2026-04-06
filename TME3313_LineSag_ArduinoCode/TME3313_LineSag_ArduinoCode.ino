@@ -19,8 +19,9 @@ unsigned long startTime = millis();
 
 char chValue[15];
 
-SoftwareSerial Sim7000G(7, 6);
-int SIM_DTR = 12;
+SoftwareSerial Sim7000G(10, 9);
+// HardwareSerial Sim7000G = Serial1;
+int SIM_DTR = 22;
 
 // ultrasonic sensor
 const int trigPin = 9;
@@ -50,7 +51,7 @@ void setup() {
   
   // Serial.println("Testing");
 
-  pinMode(progressButton, INPUT);
+  // pinMode(progressButton, INPUT);
   // pinMode(baudButton, INPUT);
   pinMode(SIM_DTR, OUTPUT);
 
@@ -73,13 +74,13 @@ void setup() {
 }
 
 void loop() {
-  if(digitalRead(progressButton) == HIGH)
-  {
-    Serial.println("Pressed");
-    delay(200);
-    while (digitalRead(progressButton) == HIGH) {}
-    SendSMS("Hey Buddy! From Connor's Arduino");
-  }
+  // if(digitalRead(progressButton) == HIGH)
+  // {
+  //   Serial.println("Pressed");
+  //   delay(200);
+  //   while (digitalRead(progressButton) == HIGH) {}
+  //   SendSMS("Hey Buddy! From Connor's Arduino");
+  // }
   if(millis()-sensTime > SAMPLE_INTERVAL && !ignore)
   {
     Serial.println("TIME");
