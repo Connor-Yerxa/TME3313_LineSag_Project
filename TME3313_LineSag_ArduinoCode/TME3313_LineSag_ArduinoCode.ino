@@ -8,12 +8,12 @@ char* pratik = "AT+CMGS=\"+15064787090\"\r";
 char* number = faaiz;
 
 // Buttons
-int progressButton = 4;   // enter / exit menu
-const int incButton = 2;  // increase threshold
-const int decButton = 3;  // decrease threshold
+int progressButton = 12;   // enter / exit menu
+const int incButton = 4;  // increase threshold
+const int decButton = 5;  // decrease threshold
 
 // Timing
-const unsigned long SAMPLE_INTERVAL = 10000;
+const unsigned long SAMPLE_INTERVAL = 1000;
 // const unsigned long SAMPLE_INTERVAL = 3600000;
 
 unsigned long sensTime = 0;
@@ -24,8 +24,8 @@ SoftwareSerial Sim7000G(7, 6);
 int SIM_DTR = 5;
 
 // Ultrasonic sensor
-const int trigPin = 9;
-const int echoPin = 10;
+const int trigPin = 10;
+const int echoPin = 11;
 float distance;
 float threshold_distance = 5.0;
 
@@ -36,7 +36,7 @@ const float minThreshold = 1.0;
 const float maxThreshold = 50.0;
 
 // LCD: RS, EN, D4, D5, D6, D7
-LiquidCrystal lcd(12, 11, A1, A2, A3, A4);
+LiquidCrystal lcd(2, 3, 6, 7, 8, 9);
 
 // Function declarations
 void updateSerial();
