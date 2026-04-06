@@ -11,7 +11,7 @@ int in=A0, progressButton=8;
 
 // const unsigned long SAMPLE_INTERVAL = 3600000;       //1 hour
 const unsigned long SAMPLE_INTERVAL = 10000;
-const unsigned long READ_SMS_INTERVAL = 20000;
+const unsigned long READ_SMS_INTERVAL = 5000;
 unsigned long timeToWait = 0;
 unsigned long sensTime = 0;
 unsigned long responseTime = 0;
@@ -65,6 +65,11 @@ void setup() {
   simSetup();
   sensTime = millis();
   responseTime = sensTime;
+
+  // digitalWrite(SIM_DTR, LOW);
+  // delay(50);
+  // Sim7000G.println("AT+CMGL=\"ALL\"");
+  // digitalWrite(SIM_DTR, HIGH);
 }
 
 void loop() {
@@ -196,26 +201,41 @@ void simSetup()
   digitalWrite(SIM_DTR, HIGH);
 }
 
-bool receiveSMS(char* looking_for)
+String readResponse(unsigned long timeout = 5000)
 {
-  Sim7000G.println("AT+CMGL=\"REC UNREAD\"");
-  delay(500);
-  String firstSMS = "";
-  while(Sim7000G.available())
-  {
-    firstSMS += Sim7000G.readStringUntil("\r"); 
-    delay(200);
-  }
-  Serial.println("Got Message");
-  Serial.println(firstSMS);
+    String out = "";
+    unsigned long start = millis();
 
-  firstSMS.toLowerCase();
+    while (millis() - start < timeout)
+    {
+        while (Sim7000G.available())
+        {
+            char c = Sim7000G.read();
+            out += c;
 
-  if (firstSMS.indexOf(looking_for) != -1)
-  {
-    return true;
-  }
-  return false;
+            // SIM7000 always ends responses with "OK\r\n"
+            if (out.endsWith("OK\r\n"))
+                return out;
+        }
+    }
+    return out;
+}
+
+bool receiveSMS(const char* looking_for)
+{
+    digitalWrite(SIM_DTR, LOW);
+    delay(1200); // full wake
+
+    Sim7000G.println("AT+CMGL=\"REC UNREAD\"");
+    String response = readResponse(8000);
+
+    digitalWrite(SIM_DTR, HIGH);
+
+    Serial.println("Got Message:");
+    Serial.println(response);
+
+    response.toLowerCase();
+    return response.indexOf(looking_for) != -1;
 }
 
 //////////////////////////////////
