@@ -94,7 +94,7 @@ void loop() {
 
   if(millis()-responseTime > READ_SMS_INTERVAL)
   {
-    sensTime = millis();
+    responseTime = millis();
     if(ignore)
     {
       if(receiveSMS(reset_msg))
@@ -109,6 +109,7 @@ void loop() {
         ignore = true;
       }
     }
+    Serial.println(ignore);
   }
   updateSerial();
 }
