@@ -22,18 +22,27 @@ const int decButton = 5;   // decrease threshold / decrease digit
 // Timing
 const unsigned long SAMPLE_INTERVAL = 1000;
 // const unsigned long SAMPLE_INTERVAL = 3600000;
-
+const unsigned long READ_SMS_INTERVAL = 5000;
 unsigned long sensTime = 0;
+unsigned long responseTime = 0;
+unsigned long startTime = millis();
 
 // SMS
 char chValue[15];
-SoftwareSerial Sim7000G(7, 6);
-int SIM_DTR = 5;
+
+SoftwareSerial Sim7000G(10, 9);
+// HardwareSerial Sim7000G = Serial1;
+int SIM_DTR = 22;
 
 // Ultrasonic sensor
 const int trigPin = 10;
 const int echoPin = 11;
 float distance;
+float threshold_distance = 5;
+
+bool ignore=false;
+const char* ignore_msg = "ignore";
+const char* reset_msg = "reset";
 float threshold_distance = 5.0;
 
 // Menu
@@ -190,6 +199,9 @@ void setup() {
 
   pinMode(SIM_DTR, OUTPUT);
   digitalWrite(SIM_DTR, HIGH);
+  
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
 
   pinMode(trigPin, OUTPUT);
   pinMode(echoPin, INPUT);
@@ -204,6 +216,7 @@ void setup() {
   updateNumberCommand();
   simSetup();
   sensTime = millis();
+  responseTime = sensTime;
 
   lcd.clear();
   showNormalScreen();
@@ -224,7 +237,7 @@ void loop() {
     return;
   }
 
-  if (millis() - sensTime > SAMPLE_INTERVAL) {
+  if (millis() - sensTime > SAMPLE_INTERVAL && !ignore) {
     sensTime = millis();
     distance = get_cm();
 
@@ -246,6 +259,25 @@ void loop() {
     showNormalScreen();
   }
 
+  if(millis()-responseTime > READ_SMS_INTERVAL)
+  {
+    responseTime = millis();
+    if(ignore)
+    {
+      if(receiveSMS(reset_msg))
+      {
+        ignore = false;
+      }
+    }
+    else
+    {
+      if(receiveSMS(ignore_msg))
+      {
+        ignore = true;
+      }
+    }
+    Serial.println(ignore);
+  }
   updateSerial();
 }
 
@@ -418,16 +450,58 @@ void simSetup() {
 
   sendCommand("AT", 100);
   sendCommand("AT+CPIN?", 100);
-  sendCommand("AT+CFUN=1", 100);
-  sendCommand("AT+CSQ", 100);
-  sendCommand("AT+CCID", 100);
-  sendCommand("AT+COPS?", 100);
-  sendCommand("AT+CNMP=38", 100);
-  sendCommand("AT+CMNB=1", 100);
-  sendCommand("AT+CMGF=1", 500);
-  sendCommand("AT+CSCS=\"GSM\"", 500);
+  sendCommand("AT+CFUN=1", 100); //functionality, 1=full fun
+  
+  sendCommand("AT+CSQ", 100); //Signal Strength
+  sendCommand("AT+CCID", 100); //Sim ID
+  sendCommand("AT+COPS?", 100); //network
 
+  sendCommand("AT+CNMP=38", 100); //forces module into 4G LTE-M
+  sendCommand("AT+CMNB=1", 100); //prefer Cat-M1 (LTE-M); disable NB-IoT
+  sendCommand("AT+CMGF=1", 500); // Set the shield to SMS mode
+  sendCommand("AT+CSCS=\"GSM\"", 500); //sets sms encodeing type
+
+  sendCommand("AT+CNMI=1,0,0,0,0", 200); // configure receiving sms.
+
+  Serial.println("Done Setting up!\n\n");
   digitalWrite(SIM_DTR, HIGH);
+}
+
+String readResponse(unsigned long timeout = 5000)
+{
+    String out = "";
+    unsigned long start = millis();
+
+    while (millis() - start < timeout)
+    {
+        while (Sim7000G.available())
+        {
+            char c = Sim7000G.read();
+            out += c;
+
+            // SIM7000 always ends responses with "OK\r\n"
+            if (out.endsWith("OK\r\n"))
+                return out;
+        }
+    }
+    return out;
+}
+
+bool receiveSMS(const char* looking_for)
+{
+    digitalWrite(SIM_DTR, LOW);
+    delay(1200); // full wake
+
+    Sim7000G.println("AT+CMGL=\"REC UNREAD\"");
+    String response = readResponse(8000);
+
+    digitalWrite(SIM_DTR, HIGH);
+
+    Serial.println("Got Message:");
+    Serial.println(response);
+
+    response.toLowerCase();
+    return response.indexOf(looking_for) != -1;
 }
 
 //////////////////////////////
