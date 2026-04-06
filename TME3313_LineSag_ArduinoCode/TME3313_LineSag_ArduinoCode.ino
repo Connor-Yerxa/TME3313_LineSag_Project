@@ -20,7 +20,7 @@ unsigned long startTime = millis();
 char chValue[15];
 
 SoftwareSerial Sim7000G(7, 6);
-int SIM_DTR = 9;
+int SIM_DTR = 12;
 
 // ultrasonic sensor
 const int trigPin = 9;
