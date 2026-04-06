@@ -11,8 +11,10 @@ int in=A0, progressButton=4;
 
 // const unsigned long SAMPLE_INTERVAL = 3600000;       //1 hour
 const unsigned long SAMPLE_INTERVAL = 10000;
+const unsigned long READ_SMS_INTERVAL = 20000;
 unsigned long timeToWait = 0;
 unsigned long sensTime = 0;
+unsigned long responseTime = 0;
 unsigned long startTime = millis();
 
 char chValue[15];
@@ -25,6 +27,10 @@ const int trigPin = 9;
 const int echoPin = 10;
 float distance;
 float threshold_distance = 5;
+
+bool ignore=false;
+const char* ignore_msg = "ignore";
+const char* reset_msg = "reset";
 
 //////////////////////////////////
 ///////////Sensor/////////////////
@@ -49,14 +55,16 @@ void setup() {
   pinMode(SIM_DTR, OUTPUT);
 
   digitalWrite(SIM_DTR, HIGH);
+  
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
 
   // while(digitalRead(progressButton)==LOW){setBaudRate(); updateSerial();}
   // delay(2000);
 
   simSetup();
   sensTime = millis();
-  pinMode(trigPin, OUTPUT);
-  pinMode(echoPin, INPUT);
+  responseTime = sensTime;
 }
 
 void loop() {
@@ -67,7 +75,7 @@ void loop() {
     while (digitalRead(progressButton) == HIGH) {}
     SendSMS("Hey Buddy! From Connor's Arduino");
   }
-  if(millis()-sensTime > SAMPLE_INTERVAL)
+  if(millis()-sensTime > SAMPLE_INTERVAL && !ignore)
   {
     Serial.println("TIME");
     sensTime = millis();
@@ -81,6 +89,25 @@ void loop() {
       snprintf(warning, 32, "WARNING: Line sagging to %s", chValue);
       Serial.println(warning);
       // SendSMS(warning);
+    }
+  }
+
+  if(millis()-responseTime > READ_SMS_INTERVAL)
+  {
+    sensTime = millis();
+    if(ignore)
+    {
+      if(receiveSMS(reset_msg))
+      {
+        ignore = false;
+      }
+    }
+    else
+    {
+      if(receiveSMS(ignore_msg))
+      {
+        ignore = true;
+      }
     }
   }
   updateSerial();
@@ -162,8 +189,30 @@ void simSetup()
   sendCommand("AT+CMGF=1", 500); // Set the shield to SMS mode
   sendCommand("AT+CSCS=\"GSM\"", 500); //sets sms encodeing type
 
+  sendCommand("AT+CNMI=1,0,0,0,0", 200); // configure receiving sms.
+
   Serial.println("Done Setting up!\n\n");
   digitalWrite(SIM_DTR, HIGH);
+}
+
+bool receiveSMS(char* looking_for)
+{
+  Sim7000G.println("AT+CMGL=\"REC UNREAD\"");
+  delay(500);
+  String firstSMS = "";
+  while(Sim7000G.available())
+  {
+    firstSMS += Sim7000G.readStringUntil("\r"); 
+    delay(200);
+  }
+  Serial.println("Got Message");
+  Serial.println(firstSMS);
+
+  if (firstSMS.indexOf(looking_for) != -1)
+  {
+    return true;
+  }
+  return false;
 }
 
 //////////////////////////////////
