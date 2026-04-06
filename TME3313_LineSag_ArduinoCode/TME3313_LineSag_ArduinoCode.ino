@@ -20,6 +20,19 @@ char chValue[15];
 SoftwareSerial Sim7000G(7, 6);
 int SIM_DTR = 5;
 
+
+//////////////////////////////////
+///////////Sensor/////////////////
+//////////////////////////////////
+void updateSerial();
+void checkingDelay(int ms);
+void sendCommand(char* message, int ms);
+void SendSMS(char* message);
+void simSetup();
+
+//////////////////////////////////
+///////////Sensor/////////////////
+//////////////////////////////////
 void setup() {
   Serial.begin(57600);
   Sim7000G.begin(9600);
@@ -59,6 +72,17 @@ void loop() {
 /////////////////////////////////////////
 /////////////////////////////////////////
 //////////////SIM////////////////////////
+
+void updateSerial() {
+  // while(!Serial.available() & !Sim800l.available()){}
+  while (Serial.available()) {
+    Sim7000G.write(Serial.read());  //Forward what Serial received to Software Serial Port (Send to SIM)
+  }
+  while (Sim7000G.available()) {
+    Serial.write(Sim7000G.read());  //Forward what Software Serial received to Serial Port (Recieve from SIM)}
+  }
+}
+
 void checkingDelay(int ms)
 {
   // Serial.println("Wainting");
@@ -123,16 +147,6 @@ void simSetup()
 
   Serial.println("Done Setting up!\n\n");
   digitalWrite(SIM_DTR, HIGH);
-}
-
-void updateSerial() {
-  // while(!Serial.available() & !Sim800l.available()){}
-  while (Serial.available()) {
-    Sim7000G.write(Serial.read());  //Forward what Serial received to Software Serial Port (Send to SIM)
-  }
-  while (Sim7000G.available()) {
-    Serial.write(Sim7000G.read());  //Forward what Software Serial received to Serial Port (Recieve from SIM)}
-  }
 }
 
 //////////////////////////////////
