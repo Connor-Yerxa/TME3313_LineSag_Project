@@ -20,6 +20,10 @@ char chValue[15];
 SoftwareSerial Sim7000G(7, 6);
 int SIM_DTR = 5;
 
+// ultrasonic sensor
+const int trigPin = 9;
+const int echoPin = 10;
+float distance;
 
 //////////////////////////////////
 ///////////Sensor/////////////////
@@ -50,6 +54,8 @@ void setup() {
 
   simSetup();
   sensTime = millis();
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
 }
 
 void loop() {
@@ -64,6 +70,7 @@ void loop() {
   {
     Serial.println("TIME");
     sensTime = millis();
+    distance = get_cm();
     
   }
   updateSerial();
@@ -152,3 +159,19 @@ void simSetup()
 //////////////////////////////////
 ///////////Sensor/////////////////
 //////////////////////////////////
+// ULTRASONIC SENSOR/////////////
+float get_cm() {
+  float duration, distance;
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(50);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(50);
+  digitalWrite(trigPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration*.0343)/2;
+  Serial.print("Distance: ");
+  Serial.println(distance);
+  return distance;
+}
+////LCD DISPLAY////////////////////
