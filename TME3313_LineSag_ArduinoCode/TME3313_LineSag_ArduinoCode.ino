@@ -15,9 +15,9 @@ char* pratik = "AT+CMGS=\"+15064787090\"\r";
 char* number = faaiz;
 
 // Buttons
-int progressButton = 12;   // enter / exit menu
-const int incButton = 4;   // increase threshold
-const int decButton = 5;   // decrease threshold
+int progressButton = 12;   // short press = action, long press = switch menu
+const int incButton = 4;   // increase threshold / increase digit
+const int decButton = 5;   // decrease threshold / decrease digit
 
 // Timing
 const unsigned long SAMPLE_INTERVAL = 1000;
@@ -45,6 +45,20 @@ const float maxThreshold = 50.0;
 // LCD: RS, EN, D4, D5, D6, D7
 LiquidCrystal lcd(2, 3, 6, 7, 8, 9);
 
+// Menu states
+enum MenuScreen {
+  SCREEN_NORMAL,
+  SCREEN_THRESHOLD,
+  SCREEN_PHONE
+};
+
+MenuScreen currentScreen = SCREEN_NORMAL;
+
+// Phone number editing
+char phoneDigits[12] = "15064618161";   // 11 digits after +
+char smsCommand[30];
+int currentDigitIndex = 0;
+
 // Function declarations
 void updateSerial();
 void checkingDelay(int ms);
@@ -53,16 +67,27 @@ void SendSMS(char* message);
 void simSetup();
 float get_cm();
 
-void handleMenu();
+void handleThresholdMenu();
+void handlePhoneMenu();
+
 void showNormalScreen();
-void showMenuScreen();
+void showThresholdScreen();
 void showAlertScreen(const char* line2);
+void showPhoneScreen();
+void showPhoneSavedScreen();
+void updateNumberCommand();
 
 const unsigned long DEBOUNCE_DELAY = 40;
+const unsigned long LONG_PRESS_DELAY = 800;
 
 ButtonState progressBtn = {progressButton, HIGH, HIGH, 0};
 ButtonState incBtn      = {incButton, HIGH, HIGH, 0};
 ButtonState decBtn      = {decButton, HIGH, HIGH, 0};
+
+// Progress button press tracking
+bool progressWaitingRelease = false;
+bool progressLongPressHandled = false;
+unsigned long progressPressStart = 0;
 
 bool wasButtonPressed(ButtonState &btn) {
   bool reading = digitalRead(btn.pin);
@@ -83,6 +108,79 @@ bool wasButtonPressed(ButtonState &btn) {
   }
 
   return false;
+}
+
+void updateButtonState(ButtonState &btn) {
+  bool reading = digitalRead(btn.pin);
+
+  if (reading != btn.lastReading) {
+    btn.lastChangeTime = millis();
+    btn.lastReading = reading;
+  }
+
+  if ((millis() - btn.lastChangeTime) > DEBOUNCE_DELAY) {
+    btn.stableState = reading;
+  }
+}
+
+void switchMenu() {
+  lcd.noCursor();
+
+  if (currentScreen == SCREEN_NORMAL) {
+    currentScreen = SCREEN_THRESHOLD;
+    menuMode = true;
+    showThresholdScreen();
+  } else if (currentScreen == SCREEN_THRESHOLD) {
+    currentScreen = SCREEN_PHONE;
+    menuMode = true;
+    showPhoneScreen();
+  } else {
+    currentScreen = SCREEN_NORMAL;
+    menuMode = false;
+    showNormalScreen();
+  }
+}
+
+void handleProgressButton() {
+  // detect initial press
+  if (wasButtonPressed(progressBtn)) {
+    progressWaitingRelease = true;
+    progressLongPressHandled = false;
+    progressPressStart = millis();
+  }
+
+  // keep debounce state updated while held/released
+  updateButtonState(progressBtn);
+
+  // long press action
+  if (progressWaitingRelease && !progressLongPressHandled && progressBtn.stableState == LOW) {
+    if (millis() - progressPressStart >= LONG_PRESS_DELAY) {
+      progressLongPressHandled = true;
+      switchMenu();
+    }
+  }
+
+  // release after short press
+  if (progressWaitingRelease && progressBtn.stableState == HIGH) {
+    if (!progressLongPressHandled) {
+      // short press action
+      if (currentScreen == SCREEN_PHONE) {
+        currentDigitIndex++;
+
+        if (currentDigitIndex > 10) {
+          currentDigitIndex = 10;
+          updateNumberCommand();
+          showPhoneSavedScreen();
+          delay(1000);
+        }
+
+        showPhoneScreen();
+      }
+    }
+
+    progressWaitingRelease = false;
+    progressLongPressHandled = false;
+  }
 }
 
 void setup() {
@@ -106,6 +204,7 @@ void setup() {
   lcd.setCursor(0, 1);
   lcd.print("Please wait...");
 
+  updateNumberCommand();
   simSetup();
   sensTime = millis();
 
@@ -114,20 +213,16 @@ void setup() {
 }
 
 void loop() {
-  // Toggle menu
-  if (wasButtonPressed(progressBtn)) {
-    menuMode = !menuMode;
-    lcd.clear();
+  handleProgressButton();
 
-    if (menuMode) {
-      showMenuScreen();
-    } else {
-      showNormalScreen();
-    }
+  if (currentScreen == SCREEN_THRESHOLD) {
+    handleThresholdMenu();
+    updateSerial();
+    return;
   }
 
-  if (menuMode) {
-    handleMenu();
+  if (currentScreen == SCREEN_PHONE) {
+    handlePhoneMenu();
     updateSerial();
     return;
   }
@@ -161,6 +256,7 @@ void loop() {
 // LCD DISPLAY FUNCTIONS
 //////////////////////////////
 void showNormalScreen() {
+  lcd.noCursor();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Dist:");
@@ -173,7 +269,8 @@ void showNormalScreen() {
   lcd.print("cm");
 }
 
-void showMenuScreen() {
+void showThresholdScreen() {
+  lcd.noCursor();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("Set Threshold");
@@ -184,6 +281,7 @@ void showMenuScreen() {
 }
 
 void showAlertScreen(const char* line2) {
+  lcd.noCursor();
   lcd.clear();
   lcd.setCursor(0, 0);
   lcd.print("WARNING");
@@ -191,7 +289,34 @@ void showAlertScreen(const char* line2) {
   lcd.print(line2);
 }
 
-void handleMenu() {
+void showPhoneScreen() {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Set Phone No.");
+
+  lcd.setCursor(0, 1);
+  lcd.print("+");
+  lcd.print(phoneDigits);
+
+  lcd.setCursor(currentDigitIndex + 1, 1);
+  lcd.cursor();
+}
+
+void showPhoneSavedScreen() {
+  lcd.noCursor();
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("Phone Saved");
+
+  lcd.setCursor(0, 1);
+  lcd.print("+");
+  lcd.print(phoneDigits);
+}
+
+//////////////////////////////
+// MENU HANDLING
+//////////////////////////////
+void handleThresholdMenu() {
   bool changed = false;
 
   if (wasButtonPressed(incBtn)) {
@@ -211,8 +336,39 @@ void handleMenu() {
   }
 
   if (changed) {
-    showMenuScreen();
+    showThresholdScreen();
   }
+}
+
+void handlePhoneMenu() {
+  bool changed = false;
+
+  if (wasButtonPressed(incBtn)) {
+    if (phoneDigits[currentDigitIndex] < '9') {
+      phoneDigits[currentDigitIndex]++;
+    } else {
+      phoneDigits[currentDigitIndex] = '0';
+    }
+    changed = true;
+  }
+
+  if (wasButtonPressed(decBtn)) {
+    if (phoneDigits[currentDigitIndex] > '0') {
+      phoneDigits[currentDigitIndex]--;
+    } else {
+      phoneDigits[currentDigitIndex] = '9';
+    }
+    changed = true;
+  }
+
+  if (changed) {
+    showPhoneScreen();
+  }
+}
+
+void updateNumberCommand() {
+  snprintf(smsCommand, sizeof(smsCommand), "AT+CMGS=\"+%s\"\r", phoneDigits);
+  number = smsCommand;
 }
 
 //////////////////////////////
