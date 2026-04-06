@@ -9,8 +9,8 @@ char* number = faaiz;
 int in=A0, progressButton=4;
 // int baudButton=8;
 
-const unsigned long SAMPLE_INTERVAL = 3600000;       //1 hour
-// const unsigned long SAMPLE_INTERVAL = 10000;
+// const unsigned long SAMPLE_INTERVAL = 3600000;       //1 hour
+const unsigned long SAMPLE_INTERVAL = 10000;
 unsigned long timeToWait = 0;
 unsigned long sensTime = 0;
 unsigned long startTime = millis();
@@ -24,6 +24,7 @@ int SIM_DTR = 5;
 const int trigPin = 9;
 const int echoPin = 10;
 float distance;
+float threshold_distance = 5;
 
 //////////////////////////////////
 ///////////Sensor/////////////////
@@ -71,7 +72,16 @@ void loop() {
     Serial.println("TIME");
     sensTime = millis();
     distance = get_cm();
-    
+    Serial.print("Distance: ");
+    Serial.println(distance);
+    if(distance < threshold_distance)
+    {
+      char warning[32];
+      dtostrf(distance, 1, 2, chValue);   // width=1, precision=2
+      snprintf(warning, 32, "WARNING: Line sagging to %s", chValue);
+      Serial.println(warning);
+      // SendSMS(warning);
+    }
   }
   updateSerial();
 }
@@ -170,8 +180,8 @@ float get_cm() {
 
   duration = pulseIn(echoPin, HIGH);
   distance = (duration*.0343)/2;
-  Serial.print("Distance: ");
-  Serial.println(distance);
+  // Serial.print("Distance: ");
+  // Serial.println(distance);
   return distance;
 }
 ////LCD DISPLAY////////////////////
