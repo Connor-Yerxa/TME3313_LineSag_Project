@@ -209,6 +209,8 @@ bool receiveSMS(char* looking_for)
   Serial.println("Got Message");
   Serial.println(firstSMS);
 
+  firstSMS.toLowerCase();
+
   if (firstSMS.indexOf(looking_for) != -1)
   {
     return true;
