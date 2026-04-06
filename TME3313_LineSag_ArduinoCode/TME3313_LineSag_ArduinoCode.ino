@@ -6,7 +6,7 @@ char* faaiz = "AT+CMGS=\"+15064618161\"\r";
 
 char* number = faaiz;
 
-int in=A0, progressButton=4;
+int in=A0, progressButton=8;
 // int baudButton=8;
 
 // const unsigned long SAMPLE_INTERVAL = 3600000;       //1 hour
@@ -20,7 +20,7 @@ unsigned long startTime = millis();
 char chValue[15];
 
 SoftwareSerial Sim7000G(7, 6);
-int SIM_DTR = 5;
+int SIM_DTR = 9;
 
 // ultrasonic sensor
 const int trigPin = 9;
