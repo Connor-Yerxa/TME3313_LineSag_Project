@@ -2,6 +2,13 @@
 #include <stdlib.h>
 #include <LiquidCrystal.h>
 
+struct ButtonState {
+  int pin;
+  bool stableState;
+  bool lastReading;
+  unsigned long lastChangeTime;
+};
+
 char* addy = "AT+CMGS=\"+15062820026\"\r";
 char* faaiz = "AT+CMGS=\"+15064618161\"\r";
 char* pratik = "AT+CMGS=\"+15064787090\"\r";
@@ -9,8 +16,8 @@ char* number = faaiz;
 
 // Buttons
 int progressButton = 12;   // enter / exit menu
-const int incButton = 4;  // increase threshold
-const int decButton = 5;  // decrease threshold
+const int incButton = 4;   // increase threshold
+const int decButton = 5;   // decrease threshold
 
 // Timing
 const unsigned long SAMPLE_INTERVAL = 1000;
@@ -46,19 +53,45 @@ void SendSMS(char* message);
 void simSetup();
 float get_cm();
 
-bool isButtonPressed(int pin);
 void handleMenu();
 void showNormalScreen();
 void showMenuScreen();
 void showAlertScreen(const char* line2);
 
+const unsigned long DEBOUNCE_DELAY = 40;
+
+ButtonState progressBtn = {progressButton, HIGH, HIGH, 0};
+ButtonState incBtn      = {incButton, HIGH, HIGH, 0};
+ButtonState decBtn      = {decButton, HIGH, HIGH, 0};
+
+bool wasButtonPressed(ButtonState &btn) {
+  bool reading = digitalRead(btn.pin);
+
+  if (reading != btn.lastReading) {
+    btn.lastChangeTime = millis();
+    btn.lastReading = reading;
+  }
+
+  if ((millis() - btn.lastChangeTime) > DEBOUNCE_DELAY) {
+    if (reading != btn.stableState) {
+      btn.stableState = reading;
+
+      if (btn.stableState == LOW) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 void setup() {
   Serial.begin(57600);
   Sim7000G.begin(9600);
 
-  pinMode(progressButton, INPUT);
-  pinMode(incButton, INPUT);
-  pinMode(decButton, INPUT);
+  pinMode(progressButton, INPUT_PULLUP);
+  pinMode(incButton, INPUT_PULLUP);
+  pinMode(decButton, INPUT_PULLUP);
 
   pinMode(SIM_DTR, OUTPUT);
   digitalWrite(SIM_DTR, HIGH);
@@ -82,7 +115,7 @@ void setup() {
 
 void loop() {
   // Toggle menu
-  if (isButtonPressed(progressButton)) {
+  if (wasButtonPressed(progressBtn)) {
     menuMode = !menuMode;
     lcd.clear();
 
@@ -161,7 +194,7 @@ void showAlertScreen(const char* line2) {
 void handleMenu() {
   bool changed = false;
 
-  if (isButtonPressed(incButton)) {
+  if (wasButtonPressed(incBtn)) {
     threshold_distance += thresholdStep;
     if (threshold_distance > maxThreshold) {
       threshold_distance = maxThreshold;
@@ -169,7 +202,7 @@ void handleMenu() {
     changed = true;
   }
 
-  if (isButtonPressed(decButton)) {
+  if (wasButtonPressed(decBtn)) {
     threshold_distance -= thresholdStep;
     if (threshold_distance < minThreshold) {
       threshold_distance = minThreshold;
@@ -180,21 +213,6 @@ void handleMenu() {
   if (changed) {
     showMenuScreen();
   }
-}
-
-//////////////////////////////
-// BUTTON HANDLING
-//////////////////////////////
-bool isButtonPressed(int pin) {
-  if (digitalRead(pin) == HIGH) {
-    delay(30);
-    if (digitalRead(pin) == HIGH) {
-      while (digitalRead(pin) == HIGH) {}
-      delay(30);
-      return true;
-    }
-  }
-  return false;
 }
 
 //////////////////////////////
