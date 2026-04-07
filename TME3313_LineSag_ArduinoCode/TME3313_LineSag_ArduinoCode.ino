@@ -62,10 +62,14 @@ enum MenuScreen {
 
 MenuScreen currentScreen = SCREEN_NORMAL;
 
+int led_green = 50, led_yellow = 51, led_red = 52;
+
 // Phone number editing
 char phoneDigits[12] = "15064618161";   // 11 digits after +
 char smsCommand[30];
 int currentDigitIndex = 0;
+
+int readings_under_threshold=0;
 
 // Function declarations
 void updateSerial();
@@ -126,6 +130,10 @@ void setup() {
   sensTime = millis();
   responseTime = sensTime;
 
+  pinMode(led_green, OUTPUT);
+  pinMode(led_yellow, OUTPUT);
+  pinMode(led_red, OUTPUT);
+
   lcd.clear();
   showNormalScreen();
 }
@@ -150,19 +158,22 @@ void loop() {
     distance = get_cm();
 
     if (distance < threshold_distance && !ignore) {
+      readings_under_threshold++;
       dtostrf(distance, 4, 1, chValue);
 
       char warning[32];
-      snprintf(warning, sizeof(warning), "Sag:%scm", chValue);
+      snprintf(warning, sizeof(warning), "Sag:%s cm", chValue);
 
       showAlertScreen(warning);
       Serial.println(warning);
 
-      // Uncomment when ready
-      SendSMS(warning);
-
-      delay(2000);
+      // Uncomment when 
+      if(readings_under_threshold % 5 == 0) 
+      {
+        SendSMS(warning);
+      }
     }
+    else readings_under_threshold = 0;
 
     showNormalScreen();
   }
@@ -186,6 +197,24 @@ void loop() {
     }
     Serial.println(ignore);
   }
+
+  if(readings_under_threshold == 0)
+  {
+    digitalWrite(led_yellow, LOW);
+    digitalWrite(led_green, HIGH);
+    digitalWrite(led_red, LOW);
+  } else if(readings_under_threshold < 5)
+  {
+    digitalWrite(led_yellow, HIGH);
+    digitalWrite(led_green, LOW);
+    digitalWrite(led_red, LOW);
+  } else
+  {
+    digitalWrite(led_yellow, LOW);
+    digitalWrite(led_green, LOW);
+    digitalWrite(led_red, HIGH);
+  }
+
   updateSerial();
 }
 
