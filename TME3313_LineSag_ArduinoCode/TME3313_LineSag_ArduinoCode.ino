@@ -126,6 +126,7 @@ void setup() {
   lcd.print("Please wait...");
 
   updateNumberCommand();
+  delay(5000);
   simSetup();
   sensTime = millis();
   responseTime = sensTime;
@@ -162,7 +163,7 @@ void loop() {
       dtostrf(distance, 4, 1, chValue);
 
       char warning[32];
-      snprintf(warning, sizeof(warning), "Sag:%s cm", chValue);
+      snprintf(warning, sizeof(warning), "WARNING Low Clearance: %s cm", chValue);
 
       showAlertScreen(warning);
       Serial.println(warning);
