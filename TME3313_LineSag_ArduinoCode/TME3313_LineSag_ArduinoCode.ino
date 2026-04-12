@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <LiquidCrystal.h>
 
+#define printToTerminal 0
+
 struct ButtonState {
   int pin;
   bool stableState;
@@ -166,7 +168,7 @@ void loop() {
       snprintf(warning, sizeof(warning), "WARNING Low Clearance: %s cm", chValue);
 
       showAlertScreen(warning);
-      Serial.println(warning);
+      if(printToTerminal) Serial.println(warning);
 
       // Uncomment when 
       if(readings_under_threshold % 5 == 0) 
@@ -196,7 +198,7 @@ void loop() {
         ignore = true;
       }
     }
-    Serial.println(ignore);
+    if(printToTerminal) Serial.println(ignore);
   }
 
   if(readings_under_threshold == 0)
@@ -351,7 +353,8 @@ void updateSerial() {
     Sim7000G.write(Serial.read());
   }
   while (Sim7000G.available()) {
-    Serial.write(Sim7000G.read());
+    if(printToTerminal) Serial.write(Sim7000G.read());
+    else Sim7000G.read();
   }
 }
 
@@ -383,7 +386,7 @@ void SendSMS(char* message) {
 }
 
 void simSetup() {
-  Serial.println("Initializing...");
+  if(printToTerminal) Serial.println("Initializing...");
   digitalWrite(SIM_DTR, LOW);
   checkingDelay(100);
 
@@ -402,7 +405,7 @@ void simSetup() {
 
   sendCommand("AT+CNMI=1,0,0,0,0", 200); // configure receiving sms.
 
-  Serial.println("Done Setting up!\n\n");
+  if(printToTerminal) Serial.println("Done Setting up!\n\n");
   digitalWrite(SIM_DTR, HIGH);
 }
 
@@ -436,8 +439,8 @@ bool receiveSMS(const char* looking_for)
 
     digitalWrite(SIM_DTR, HIGH);
 
-    Serial.println("Got Message:");
-    Serial.println(response);
+    if(printToTerminal) Serial.println("Got Message:");
+    if(printToTerminal) Serial.println(response);
 
     response.toLowerCase();
     return response.indexOf(looking_for) != -1;
